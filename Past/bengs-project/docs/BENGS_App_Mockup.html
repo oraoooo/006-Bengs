@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BENGS — Interactive App Mockup</title>
+<!-- Icons are inline SVG (see ICONS dict in script) — no external font, so this
+     file works fully offline and avoids file:// CORS issues with webfonts. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:#EDEBE3; color:#0F1330; }
+  #layout { display:flex; min-height:100vh; }
+  #sidebar { width:260px; background:#fff; border-right:1px solid #D3D1C7; padding:16px 0; overflow-y:auto; height:100vh; position:sticky; top:0; flex-shrink:0; }
+  #sidebar h1 { font-size:15px; padding:0 16px 12px; margin:0; }
+  #sidebar h1 span { display:block; font-size:10px; color:#888780; font-weight:400; margin-top:2px; }
+  .group-label { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:#888780; padding:14px 16px 4px; }
+  .nav-item { padding:7px 16px; font-size:12px; color:#3B3A36; cursor:pointer; border-left:3px solid transparent; }
+  .nav-item:hover { background:#F1EFE8; }
+  .nav-item.active { background:#E7ECFF; border-left-color:#1D5BFE; color:#1D5BFE; font-weight:500; }
+  #main { flex:1; display:flex; flex-direction:column; align-items:center; padding:32px 24px; }
+  #screen-label { font-size:12px; color:#5F5E5A; margin-bottom:14px; text-align:center; }
+  #screen-label b { color:#0F1330; }
+  #phone-frame { width:320px; border-radius:36px; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.18); background:#fff; }
+  #phone-content { min-height:640px; max-height:800px; overflow-y:auto; }
+  .cell { border:0.5px solid #D3D1C7; border-radius:14px; margin-bottom:10px; overflow:hidden; }
+  .cell-head { padding:12px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .cell-body { padding:0 12px 14px; border-top:0.5px solid #F1EFE8; }
+  .chip { display:inline-block; padding:6px 12px; border-radius:20px; font-size:12px; margin:0 6px 6px 0; cursor:pointer; border:0.5px solid #D3D1C7; color:#5F5E5A; }
+  .chip.sel { background:#1D5BFE; color:#fff; border-color:#1D5BFE; }
+  .daydot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; border:0.5px solid #D3D1C7; color:#888780; }
+  .daydot.sel { background:#1D5BFE; color:#fff; border-color:#1D5BFE; }
+  .btn { border-radius:12px; height:42px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:500; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="layout">
+  <div id="sidebar">
+    <h1>BENGS <span>Interactive app mockup — v2</span></h1>
+    <div id="nav-list"></div>
+  </div>
+  <div id="main">
+    <div id="screen-label"></div>
+    <div id="phone-frame"><div id="phone-content"></div></div>
+  </div>
+</div>
+
+<script>
+const C = { blue:'#1D5BFE', amber:'#FAC829', red:'#FF383D', navy:'#0F1330', lavender:'#E7ECFF', gray:'#5F5E5A', line:'#D3D1C7', bg:'#F1EFE8' };
+// Inline SVG icon set (stroke-based, 24x24 viewBox) — no external font dependency,
+// so icons render even when this file is opened directly via file:// (webfont CORS
+// on the .woff2 itself is a known failure mode for local-file HTML, the CSS loads
+// fine but the font asset gets silently blocked).
+const ICONS = {
+  'chevron-left': '<path d="M15 6l-6 6 6 6"/>',
+  'chevron-right': '<path d="M9 6l6 6-6 6"/>',
+  'chevron-up': '<path d="M6 15l6-6 6 6"/>',
+  'chevron-down': '<path d="M6 9l6 6 6-6"/>',
+  'x': '<path d="M18 6L6 18M6 6l12 12"/>',
+  'check': '<path d="M5 13l4 4L19 7"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>',
+  'camera': '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.2"/><path d="M8 7l1.3-2h5.4L16 7"/>',
+  'edit': '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/>',
+  'pencil': '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/>',
+  'id': '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2"/><path d="M14 10h4M14 14h4"/>',
+  'license': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h4M7 13h7M7 16.5h10"/>',
+  'car': '<path d="M5 17h14M6 17a2 2 0 1 1-4 0M18 17a2 2 0 1 0 4 0M5 17V11l2-5h10l2 5v6"/>',
+  'steering-wheel': '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.4"/><path d="M12 6.2v4.4M8.4 14.6L6.2 17M15.6 14.6l2.2 2.4"/>',
+  'clock-hour-4': '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.5l3 2"/>',
+  'clock': '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.5l3 2"/>',
+  'map-pin': '<path d="M12 21s7-6.7 7-11.3A7 7 0 1 0 5 9.7C5 14.3 12 21 12 21Z"/><circle cx="12" cy="9.7" r="2.3"/>',
+  'lock': '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/>',
+  'cash': '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/>',
+  'notes': '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  'file-text': '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  'repeat': '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  'ruler-2': '<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v3M15 8v3"/>',
+  'adjustments': '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="8" cy="18" r="1.6" fill="currentColor" stroke="none"/>',
+  'star': '<path d="M12 2.5l3 6.6 7 .8-5.3 4.7 1.6 6.9-6.3-3.7-6.3 3.7 1.6-6.9-5.3-4.7 7-.8Z"/>',
+  'arrow-left': '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  'arrow-right': '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  'grip-vertical': '<circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/>',
+  'map-2': '<path d="M9 4.5l-6 2v13l6-2 6 2 6-2v-13l-6 2-6-2Z"/><path d="M9 4.5v13M15 6.5v13"/>',
+  'mail': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  'users': '<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9.5" r="2.3"/><path d="M15.5 20a4.5 4.5 0 0 1 6-4.2"/>',
+  'bolt': '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>',
+  'calendar': '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  'user': '<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>',
+  'navigation': '<path d="M3 11l18-8-8 18-2-8-8-2Z"/>',
+  'alert-triangle': '<path d="M12 3.2l9.5 16.8H2.5Z"/><path d="M12 9.5v4.5"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/>',
+  'circle-check': '<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/>',
+  'circle-x': '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'
+};
+function ic(name, size, color){ size = size||16; color = color||'currentColor';
+  var body = ICONS[name] || '<circle cx="12" cy="12" r="8"/>';
+  return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;display:inline-block">' + body + '</svg>'; }
+function field(label, value, extra){ return '<div style="background:#fff;border-radius:14px;padding:12px;margin-bottom:10px;' + (extra||'') + '"><div style="font-size:11px;color:#5F5E5A;margin-bottom:4px">' + label + '</div><div style="font-size:13px;color:#0F1330;font-weight:500">' + value + '</div></div>'; }
+function lockedField(label, value, iconName){ return '<div style="flex:1;background:' + C.lavender + ';border-radius:14px;padding:12px;opacity:0.9"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:#534AB7">' + label + '</div>' + ic(iconName,11,'#534AB7') + '</div><div style="font-size:12px;color:#26215C;font-weight:500">' + value + '</div></div>'; }
+function pill(text,bg,fg){ return '<span style="background:' + bg + ';color:' + fg + ';font-size:10px;padding:3px 8px;border-radius:20px">' + text + '</span>'; }
+function mapSVG(h){ h=h||100; var y1=h-22, y2=Math.round(h*0.35), y3=Math.round(h*0.58), y4=Math.round(h*0.22), y5=Math.round(h*0.45);
+  return '<svg viewBox="0 0 240 ' + h + '" style="width:100%;height:' + h + 'px;display:block"><rect width="240" height="' + h + '" fill="#EDEBE3"/><path d="M25 ' + y1 + ' L65 ' + y2 + ' L115 ' + y3 + ' L165 ' + y4 + ' L215 ' + y5 + '" stroke="#0F1330" stroke-width="2.5" fill="none"/><circle cx="25" cy="' + y1 + '" r="6" fill="' + C.red + '"/><circle cx="215" cy="' + y5 + '" r="6" fill="' + C.red + '"/></svg>'; }
+function headerBar(title, opts){ opts=opts||{}; var c = opts.dark ? '#fff' : '#0F1330';
+  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px">' +
+    '<span onclick="' + (opts.back?("go('"+opts.back+"')"):'') + '" style="color:' + c + ';font-size:16px;cursor:' + (opts.back?'pointer':'default') + '">' + (opts.hideBack?'':ic('chevron-left',18)) + '</span>' +
+    '<span style="color:' + c + ';font-size:14px;font-weight:500">' + title + '</span>' +
+    '<span style="width:18px;color:' + c + '">' + (opts.right||'') + '</span></div>'; }
+function bottomNav(active){ var tabs=[['schedule','calendar','Schedule','NAV-S02'],['friends','users','Friends','SOC-S06'],['','bolt','Home','NAV-S03'],['inbox','mail','Inbox','NOTIF-S01'],['profile','user','Profile','PROF-S01']];
+  var out = '<div style="background:#fff;border-top:0.5px solid #F1EFE8;padding:10px 16px 14px;display:flex;justify-content:space-between;align-items:flex-end">';
+  tabs.forEach(function(t){
+    if(t[0]===''){ out += '<div onclick="go(\'' + t[3] + '\')" style="text-align:center;color:#412402;font-size:9px;margin-top:-24px;cursor:pointer"><div style="width:46px;height:46px;border-radius:50%;background:' + C.amber + ';display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 6px rgba(0,0,0,0.15)">' + ic('bolt',20) + '</div>' + t[2] + '</div>'; }
+    else { out += '<div onclick="go(\'' + t[3] + '\')" style="text-align:center;color:' + (active===t[0]?'#0F1330':'#888780') + ';font-size:9px;cursor:pointer;position:relative">' + (t[0]==='inbox'?('<span style="position:absolute;top:-2px;right:6px;width:6px;height:6px;background:'+C.red+';border-radius:50%"></span>'):'') + '<div style="font-size:18px">' + ic(t[1],18) + '</div>' + t[2] + '</div>'; }
+  });
+  return out + '</div>'; }
+function scanScreen(title, docIcon, hint, nextId){ return '<div style="background:' + C.navy + ';padding:20px;min-height:600px">' + headerBar(title,{dark:true,hideBack:true,right:ic('x',16)}) +
+  '<div style="border:2px dashed rgba(255,255,255,0.4);border-radius:12px;height:160px;display:flex;align-items:center;justify-content:center;margin:8px 0 16px;position:relative">' + ic(docIcon,40,'rgba(255,255,255,0.3)') + '<div style="position:absolute;bottom:8px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.5);font-size:10px">' + hint + '</div></div>' +
+  '<div onclick="go(\'' + nextId + '\')" style="width:56px;height:56px;border-radius:50%;background:#fff;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;cursor:pointer">' + ic('camera',24,C.navy) + '</div>' +
+  '<div style="text-align:center;color:rgba(255,255,255,0.5);font-size:10px">Tap the shutter to continue</div></div>'; }
+function confirmScreen(title, rows, nextId){ var rowsHtml = rows.map(function(r){ return '<div><div style="font-size:10px;color:#5F5E5A">' + r[0] + '</div><div style="border-bottom:0.5px solid #D3D1C7;padding:6px 0;font-size:13px;color:#0F1330">' + r[1] + '</div></div>'; }).join('');
+  return '<div style="background:#fff;padding:20px;min-height:600px">' + headerBar(title,{}) +
+  '<div style="background:#EAF3DE;border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:6px;margin-bottom:14px">' + ic('check',13,'#27500A') + '<span style="font-size:11px;color:#27500A">Scanned successfully — check the details below</span></div>' +
+  '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">' + rowsHtml + '</div>' +
+  '<div style="font-size:10px;color:#888780;margin-bottom:14px;display:flex;align-items:center;gap:5px">' + ic('edit',12) + 'Every field above is editable</div>' +
+  '<div class="btn" onclick="go(\'' + nextId + '\')" style="background:' + C.blue + ';color:#fff">Continue</div></div>'; }
+function selfieScreen(title, hint, nextId){ return '<div style="background:' + C.navy + ';padding:20px;min-height:600px">' + headerBar(title,{dark:true,hideBack:true,right:ic('x',16)}) +
+  '<div style="border-radius:50%;width:150px;height:150px;margin:8px auto 14px;border:2px dashed rgba(255,255,255,0.5);display:flex;align-items:center;justify-content:center">' + ic('user',44,'rgba(255,255,255,0.3)') + '</div>' +
+  '<div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:8px;display:flex;align-items:center;gap:6px;margin-bottom:16px">' + ic('id',14,'rgba(255,255,255,0.7)') + '<span style="font-size:10px;color:rgba(255,255,255,0.7)">' + hint + '</span></div>' +
+  '<div onclick="go(\'' + nextId + '\')" style="width:56px;height:56px;border-radius:50%;background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer">' + ic('camera',24,C.navy) + '</div></div>'; }
+function chipRow(labels, selIdx){ return labels.map(function(l,i){ return '<div class="chip ' + (i===selIdx?'sel':'') + '">' + l + '</div>'; }).join(''); }
+function sliderRow(label,val,min,max,cur){ return '<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>' + label + '</span><span style="color:#5F5E5A">' + val + '</span></div><input type="range" min="' + min + '" max="' + max + '" value="' + cur + '" style="width:100%;accent-color:' + C.blue + ';height:18px"></div>'; }
+function notifRow(title,sub){ return '<div style="border-bottom:0.5px solid #F1EFE8;padding:10px 0"><div style="font-size:13px;font-weight:500">' + title + '</div><div style="font-size:11px;color:#5F5E5A">' + sub + '</div></div>'; }
+function enrichRow(label,val,vis){ return '<div style="background:#fff;border:0.5px solid #D3D1C7;border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;color:#5F5E5A">' + label + '</div><div style="font-size:13px">' + val + '</div></div><div onclick="go(\'PROF-S04\')" style="cursor:pointer">' + pill(vis==='public'?'Public':'Cool friends','#EEEDFE','#26215C') + '</div></div>'; }
+
+// ---------------- STATE ----------------
+var state = {
+  current: 'AUTH-S01',
+  addBeng: { open:null, vehicle:0, title:"Emmie's 4th Beng!", origin:'Senayan Residence', destination:'SCBD Lot 17', price:15000, seats:5, distance:12.4, arrivalTime:'08:15', arrivalTimeMin:'08:15', desc:'', freq:'never', days:[], everyN:1 },
+  cardStack: { idx:0, requested:false },
+  reqConfirm: { overlap:false }
+};
+
+function mount(){ document.getElementById('phone-content').innerHTML = SCREENS[state.current].render();
+  var s=SCREENS[state.current]; document.getElementById('screen-label').innerHTML = '<b>' + s.id + '</b> — ' + s.title;
+  document.querySelectorAll('.nav-item').forEach(function(el){ el.classList.toggle('active', el.dataset.id===state.current); }); }
+function go(id){ if(!SCREENS[id]){ console.warn('missing', id); return; } state.current=id; mount(); }
+function toggleCell(name){ state.addBeng.open = state.addBeng.open===name ? null : name; mount(); }
+function pickFreq(f){ state.addBeng.freq=f; mount(); }
+function toggleDay(d){ var i=state.addBeng.days.indexOf(d); if(i>-1) state.addBeng.days.splice(i,1); else state.addBeng.days.push(d); mount(); }
+function pickVehicle(i){ state.addBeng.vehicle=i; mount(); }
+function skipCard(){ state.cardStack.idx = (state.cardStack.idx+1)%3; state.cardStack.requested=false; mount(); }
+function toggleRequest(){ state.cardStack.requested = !state.cardStack.requested; mount(); }
+function toggleOverlapDemo(){ state.reqConfirm.overlap = !state.reqConfirm.overlap; mount(); }
+
+// ---------------- SCREENS ----------------
+var SCREENS = {};
+function reg(id, group, title, render){ SCREENS[id] = {id:id, group:group, title:title, render:render}; }
+
+// === 1. AUTH & ONBOARDING ===
+reg('AUTH-S01','Auth & Onboarding','Splash', function(){ return '<div style="background:' + C.blue + ';min-height:600px;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
+  '<div style="width:56px;height:56px;border:4px solid #fff;border-top-color:' + C.amber + ';border-radius:50%;margin-bottom:10px"></div>' +
+  '<div style="color:#fff;font-size:26px;font-weight:600;letter-spacing:1px;margin-bottom:40px">BENGS</div>' +
+  '<div onclick="go(\'AUTH-S02\')" style="position:absolute;bottom:24px;color:rgba(255,255,255,0.5);font-size:10px;cursor:pointer">tap to continue →</div></div>'; });
+
+reg('AUTH-S02','Auth & Onboarding','Onboarding Intro', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:32px 24px;text-align:center;display:flex;flex-direction:column;justify-content:center">' +
+  '<div style="width:44px;height:44px;border:3px solid #fff;border-top-color:' + C.amber + ';border-radius:50%;margin:0 auto 10px"></div>' +
+  '<div style="color:#fff;font-size:20px;font-weight:600;margin-bottom:20px">BENGS</div>' +
+  '<div style="color:' + C.amber + ';font-weight:700;font-size:15px;margin-bottom:8px">Explore now<br>to experience the benefits</div>' +
+  '<div style="color:#fff;font-size:12px;line-height:1.6;margin-bottom:24px">Nebeng with people you already trust, on your schedule or the spot.</div>' +
+  '<div class="btn" onclick="go(\'AUTH-S03\')" style="background:' + C.amber + ';color:#412402">Get Started</div></div>'; });
+
+reg('AUTH-S03','Auth & Onboarding','Log In / Sign Up Choice — FIXED (no Facebook)', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' +
+  '<div style="text-align:center;margin-bottom:36px"><div style="width:40px;height:40px;border:3px solid #fff;border-top-color:' + C.amber + ';border-radius:50%;margin:0 auto 6px"></div><div style="color:#fff;font-size:20px;font-weight:600;letter-spacing:1px">BENGS</div></div>' +
+  '<div class="btn" onclick="go(\'AUTH-S04\')" style="background:' + C.amber + ';color:#412402;margin-bottom:12px">Log In</div>' +
+  '<div class="btn" onclick="go(\'AUTH-S08\')" style="background:' + C.navy + ';color:#FAC829;margin-bottom:20px">Sign Up</div>' +
+  '<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px"><div style="flex:1;height:1px;background:rgba(255,255,255,0.4)"></div><div style="color:#fff;font-size:12px">Or</div><div style="flex:1;height:1px;background:rgba(255,255,255,0.4)"></div></div>' +
+  '<div class="btn" style="background:' + C.navy + ';color:#fff;gap:8px"><span style="color:#EF9F27;font-weight:700">G</span> Continue with Google</div>' +
+  '<div style="text-align:center;margin-top:12px;font-size:10px;color:rgba(255,255,255,0.55)">Facebook removed per BR-08 — this screen was missing from the first fix pass</div></div>'; });
+
+reg('AUTH-S04','Auth & Onboarding','Log In (fixed)', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' + headerBar('Log in',{dark:true,back:'AUTH-S03'}) +
+  '<div style="text-align:center;margin:12px 0 20px"><div style="width:40px;height:40px;border:3px solid #fff;border-top-color:' + C.amber + ';border-radius:50%;margin:0 auto 6px"></div><div style="color:#fff;font-size:20px;font-weight:600;letter-spacing:1px">BENGS</div></div>' +
+  field('Email or phone','you@email.com') + field('Password','••••••••') +
+  '<div style="text-align:right;color:' + C.amber + ';font-size:12px;margin-bottom:16px;cursor:pointer" onclick="go(\'AUTH-S05\')">Forgot password?</div>' +
+  '<div class="btn" onclick="go(\'NAV-S02\')" style="background:' + C.amber + ';color:#412402;margin-bottom:16px">Log in</div>' +
+  '<div class="btn" style="background:' + C.navy + ';color:#fff;gap:8px"><span style="color:#EF9F27;font-weight:700">G</span> Continue with Google</div></div>'; });
+
+reg('AUTH-S05','Auth & Onboarding','Forgot Password', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' + headerBar('Forgot password',{dark:true,back:'AUTH-S04'}) +
+  '<div style="color:#fff;font-size:12px;line-height:1.6;margin:16px 0">Enter the email associated with your account and we\'ll send a code to reset your password.</div>' +
+  field('Email','you@email.com') +
+  '<div class="btn" onclick="go(\'AUTH-S06\')" style="background:' + C.amber + ';color:#412402;margin-top:8px">Send OTP</div></div>'; });
+
+reg('AUTH-S06','Auth & Onboarding','Verify OTP (Reset)', function(){ var boxes=''; for(var i=0;i<6;i++){ boxes += '<div style="flex:1;height:44px;background:#fff;border-radius:8px"></div>'; }
+  return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' + headerBar('Verify OTP',{dark:true,back:'AUTH-S05'}) +
+  '<div style="color:#fff;font-size:12px;margin:16px 0">Enter the 6-digit code sent to your email.</div>' +
+  '<div style="display:flex;gap:8px;margin-bottom:16px">' + boxes + '</div>' +
+  '<div style="color:' + C.amber + ';font-size:12px;text-align:center;margin-bottom:16px">Resend in 00:57</div>' +
+  '<div class="btn" onclick="go(\'AUTH-S07\')" style="background:' + C.amber + ';color:#412402">Confirm</div></div>'; });
+
+reg('AUTH-S07','Auth & Onboarding','New Password', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' + headerBar('New password',{dark:true,back:'AUTH-S06'}) +
+  field('New password','••••••••') + field('Confirm password','••••••••') +
+  '<div class="btn" onclick="go(\'AUTH-S04\')" style="background:' + C.amber + ';color:#412402;margin-top:8px">Save & log in</div></div>'; });
+
+reg('AUTH-S08','Auth & Onboarding','Sign Up (fixed)', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:28px 20px">' + headerBar('Sign up',{dark:true,back:'AUTH-S03'}) +
+  '<div style="text-align:center;margin:12px 0 20px"><div style="width:40px;height:40px;border:3px solid #fff;border-top-color:' + C.amber + ';border-radius:50%;margin:0 auto 6px"></div><div style="color:#fff;font-size:20px;font-weight:600;letter-spacing:1px">BENGS</div></div>' +
+  field('Email or phone','you@email.com') + field('Password','••••••••') + field('Confirm password','••••••••') +
+  '<div class="btn" onclick="go(\'AUTH-S09\')" style="background:' + C.amber + ';color:#412402;margin:8px 0 16px">Sign up</div>' +
+  '<div class="btn" style="background:' + C.navy + ';color:#fff;gap:8px"><span style="color:#EF9F27;font-weight:700">G</span> Continue with Google</div></div>'; });
+
+reg('AUTH-S09','Auth & Onboarding','Complete Onboarding', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Tell us about you',{hideBack:true}) +
+  field('First name','Emmie') + field('Surname','Watson') + field('Birthdate','17 Sep 1998') + field('Gender','Female') + field('Phone / WhatsApp number','+62 811 9767 088') +
+  '<div class="btn" onclick="go(\'AUTH-S11\')" style="background:' + C.blue + ';color:#fff;margin-top:8px">Continue</div>' +
+  '<div style="text-align:center;font-size:10px;color:#888780;margin-top:8px">18+ path shown — 13-17 would route to Parental Consent instead</div></div>'; });
+
+reg('AUTH-S10','Auth & Onboarding','Parental Consent (13-17)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Parental consent',{hideBack:true}) +
+  field('Parent name','') + field('Parent phone or email','') +
+  '<div style="font-size:11px;color:#5F5E5A;margin-bottom:6px">Consent method</div>' +
+  '<div style="display:flex;gap:8px;margin-bottom:16px">' + chipRow(['SMS','Email','Link'],0) + '</div>' +
+  '<div class="btn" onclick="go(\'NAV-S02\')" style="background:' + C.blue + ';color:#fff">Send consent request</div>' +
+  '<div style="background:#FAEEDA;border-radius:10px;padding:10px;font-size:11px;color:#633806;margin-top:14px">Status: pending — you can browse but not request until a parent grants consent.</div></div>'; });
+
+reg('AUTH-S11','Auth & Onboarding','Verified User Opt-in Prompt', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;text-align:center;display:flex;flex-direction:column;justify-content:center">' +
+  '<div style="background:#E6F1FB;border-radius:16px;padding:16px;margin-bottom:16px">' + ic('steering-wheel',32,'#185FA5') + '</div>' +
+  '<div style="font-size:15px;font-weight:500;margin-bottom:8px">Interested in becoming a verified driver?</div>' +
+  '<div style="font-size:12px;color:#5F5E5A;line-height:1.6;margin-bottom:20px">Verify your identity and add a vehicle to start offering rides and earning back on gas.</div>' +
+  '<div class="btn" onclick="go(\'KYC-S01\')" style="background:' + C.blue + ';color:#fff;margin-bottom:10px">Yes, verify me</div>' +
+  '<div style="color:#888780;font-size:12px;cursor:pointer" onclick="go(\'NAV-S02\')">Later</div></div>'; });
+
+// === 2. KYC / VEHICLE ===
+reg('KYC-S01','Driver Mode & KYC/Vehicle','Driver Mode Entry', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Become a driver',{back:'PROF-S09'}) +
+  '<div style="background:#E6F1FB;border-radius:16px;padding:16px;text-align:center;margin-bottom:16px">' + ic('steering-wheel',32,'#185FA5') + '</div>' +
+  '<div style="font-size:13px;line-height:1.6;margin-bottom:16px">Verify your identity and add a vehicle. KYC and vehicle are reviewed independently.</div>' +
+  '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">' +
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5F5E5A">' + ic('id',15,'#378ADD') + ' KTP + selfie</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5F5E5A">' + ic('license',15,'#378ADD') + ' SIM + selfie</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5F5E5A">' + ic('car',15,'#378ADD') + ' At least 1 vehicle</div></div>' +
+  '<div class="btn" onclick="go(\'KYC-S02\')" style="background:' + C.blue + ';color:#fff">Start verification</div></div>'; });
+
+reg('KYC-S02','Driver Mode & KYC/Vehicle','Scan KTP', function(){ return scanScreen('Scan KTP','id','Align KTP within frame','KYC-S03'); });
+reg('KYC-S03','Driver Mode & KYC/Vehicle','Confirm KTP Data', function(){ return confirmScreen('Confirm KTP data',[['Full name','Emmie Watson'],['NIK','3171xxxxxxxx0001'],['Date of birth','17 Sep 1998'],['Address','Jl. Senayan Residence No.7']],'KYC-S04'); });
+reg('KYC-S04','Driver Mode & KYC/Vehicle','KTP Selfie Capture', function(){ return selfieScreen('Selfie with KTP','Hold your KTP next to your face, inside the circle','KYC-S05'); });
+reg('KYC-S05','Driver Mode & KYC/Vehicle','Scan SIM', function(){ return scanScreen('Scan SIM','license','Align SIM within frame','KYC-S06'); });
+reg('KYC-S06','Driver Mode & KYC/Vehicle','Confirm SIM Data', function(){ return confirmScreen('Confirm SIM data',[['License number','B1234567'],['Expiry date','12 Jan 2029'],['Class','A']],'KYC-S07'); });
+reg('KYC-S07','Driver Mode & KYC/Vehicle','SIM Selfie Capture (needs selfie_url)', function(){ return selfieScreen('Selfie with SIM','Hold your SIM next to your face, inside the circle','KYC-S08'); });
+
+reg('KYC-S08','Driver Mode & KYC/Vehicle','Disability Declaration (optional)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Disability (optional)',{back:'KYC-S07'}) +
+  '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:0.5px solid #F1EFE8"><span style="font-size:13px">I have a disability</span><div style="width:34px;height:20px;border-radius:10px;background:#D3D1C7;position:relative"><div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;left:2px;top:2px"></div></div></div>' +
+  '<div class="btn" onclick="go(\'VEH-S01\')" style="background:' + C.blue + ';color:#fff;margin-top:20px">Continue</div></div>'; });
+
+reg('VEH-S01','Driver Mode & KYC/Vehicle','Vehicle List (onboarding, empty)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Your vehicles',{back:'KYC-S08'}) +
+  '<div style="background:#FAEEDA;border-radius:10px;padding:10px;font-size:11px;color:#633806;margin-bottom:16px">At least 1 vehicle is required before your KYC can be submitted for review.</div>' +
+  '<div class="btn" onclick="go(\'VEH-S02\')" style="border:0.5px dashed #D3D1C7;color:#5F5E5A;gap:6px">' + ic('plus',14) + ' Add a vehicle</div></div>'; });
+
+reg('VEH-S02','Driver Mode & KYC/Vehicle','Add Vehicle — Type & STNK', function(){ return '<div style="background:' + C.navy + ';min-height:600px;padding:20px">' + headerBar('Add vehicle',{dark:true,hideBack:true,right:ic('x',16)}) +
+  '<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:6px">Vehicle type</div>' +
+  '<div style="display:flex;gap:8px;margin-bottom:20px"><div class="chip sel">Mobil</div><div class="chip" style="color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.3)">Motor</div></div>' +
+  '<div style="border:2px dashed rgba(255,255,255,0.4);border-radius:12px;height:140px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">' + ic('file-text',36,'rgba(255,255,255,0.3)') + '</div>' +
+  '<div onclick="go(\'VEH-S03\')" style="width:56px;height:56px;border-radius:50%;background:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer">' + ic('camera',24,C.navy) + '</div></div>'; });
+
+reg('VEH-S03','Driver Mode & KYC/Vehicle','Confirm STNK Data', function(){ return confirmScreen('Confirm STNK data',[['Brand / Model','Toyota Avanza'],['Plate','B 1234 ABC'],['Year','2021']],'VEH-S04'); });
+
+reg('VEH-S04','Driver Mode & KYC/Vehicle','Vehicle Details (nickname/defaults)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Vehicle details',{back:'VEH-S03'}) +
+  field('Nickname','Avanza pagi') + field('Default max passenger','5') + field('Default price range','Rp 15.000 / person') +
+  '<div class="btn" onclick="go(\'KYC-S09\')" style="background:' + C.blue + ';color:#fff;margin-top:8px">Save vehicle</div></div>'; });
+
+reg('VEH-S05','Driver Mode & KYC/Vehicle','Vehicle List (ongoing)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('My vehicles',{back:'PROF-S09'}) +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">Avanza pagi</div><div style="font-size:11px;color:#5F5E5A">B 1234 ABC</div></div>' + pill('Verified','#EAF3DE','#27500A') + '</div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:10px 12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">Vario malam</div><div style="font-size:11px;color:#5F5E5A">B 5678 XYZ</div></div>' + pill('Pending','#FAEEDA','#633806') + '</div>' +
+  '<div class="btn" onclick="go(\'VEH-S02\')" style="border:0.5px dashed #D3D1C7;color:#5F5E5A;gap:6px">' + ic('plus',14) + ' Add new vehicle</div></div>'; });
+
+reg('KYC-S09','Driver Mode & KYC/Vehicle','Submission Pending (2 tracks)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Under review',{hideBack:true}) +
+  '<div style="text-align:center;margin-bottom:16px">' + ic('clock-hour-4',32,'#BA7517') + '<div style="font-size:11px;color:#5F5E5A;margin-top:6px">Reviewed independently, not as one bundle</div></div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px">' + ic('id',18,'#378ADD') + '<div><div style="font-size:13px;font-weight:500">Identity (KYC)</div><div style="font-size:10px;color:#5F5E5A">Submitted 2h ago</div></div></div>' + pill('Pending','#FAEEDA','#633806') + '</div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;gap:8px">' + ic('car',18,'#378ADD') + '<div><div style="font-size:13px;font-weight:500">Vehicle</div><div style="font-size:10px;color:#5F5E5A">Avanza pagi</div></div></div>' + pill('Verified','#EAF3DE','#27500A') + '</div>' +
+  '<div class="btn" onclick="go(\'NAV-S02\')" style="background:' + C.blue + ';color:#fff">Back to home</div></div>'; });
+
+// === 3. NAV SHELL ===
+reg('NAV-S02','Home & Navigation','Schedule Tab (Calendar/List)', function(){ return '<div style="background:#F8F7F2;min-height:600px;display:flex;flex-direction:column">' +
+  '<div style="padding:20px 20px 10px;display:flex;justify-content:space-between;align-items:center">' +
+    '<div onclick="go(\'SCHED-ACC\')" style="width:32px;height:32px;border-radius:50%;background:' + C.blue + ';color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer">' + ic('plus',16) + '</div>' +
+    '<div style="font-size:13px;font-weight:500">Today — Fri 26 Jun 2026</div>' +
+    '<div onclick="go(\'FINDS-S01\')" style="width:32px;height:32px;border-radius:50%;background:' + C.amber + ';color:#412402;display:flex;align-items:center;justify-content:center;cursor:pointer">' + ic('navigation',16) + '</div></div>' +
+  '<div style="padding:0 20px;flex:1">' +
+    '<div onclick="go(\'SCHED-S11\')" style="background:#fff;border-left:4px solid ' + C.blue + ';border-radius:12px;padding:12px;margin-bottom:12px;cursor:pointer">' +
+      '<div style="display:flex;justify-content:space-between"><div style="font-size:13px;color:#0F1330">07:10 Senayan Residence</div><div style="font-size:13px;font-weight:500">Sunrise Ride</div></div>' +
+      '<div style="font-size:11px;color:#5F5E5A">08:00 SCBD Lot 17 · Avanza · B 1234 ABC</div></div>' +
+    '<div onclick="go(\'FINDS-S04\')" style="background:#fff;border-left:4px solid ' + C.amber + ';border-radius:12px;padding:12px;cursor:pointer">' +
+      '<div style="display:flex;justify-content:space-between"><div style="font-size:13px;color:#0F1330">07:10 Senayan Residence</div><div style="font-size:13px;font-weight:500">Dimas\' #1 Beng</div></div>' +
+      '<div style="font-size:11px;color:#5F5E5A">08:00 SCBD Lot 17 · Dimas A.</div></div></div>' + bottomNav('schedule') + '</div>'; });
+
+reg('NAV-S03','Home & Navigation','Home Tab — Quick Beng Landing', function(){ return '<div style="background:#F8F7F2;min-height:600px;display:flex;flex-direction:column">' +
+  '<div style="padding:32px 20px 20px;text-align:center">' +
+    '<div style="width:44px;height:44px;margin:0 auto 12px;border-radius:50%;background:#FAEEDA;display:flex;align-items:center;justify-content:center;color:#BA7517;font-size:20px">' + ic('bolt',20) + '</div>' +
+    '<div style="font-size:17px;font-weight:500;margin-bottom:6px">Quick Beng</div>' +
+    '<div style="font-size:12px;color:#5F5E5A;line-height:1.5;margin-bottom:24px">Find or offer a ride right now, no scheduling needed.</div>' +
+    '<div class="btn" onclick="go(\'QUICK-S01\')" style="background:' + C.blue + ';color:#fff;margin-bottom:12px">Add a quick beng</div>' +
+    '<div class="btn" onclick="go(\'FINDQ-S01\')" style="background:' + C.amber + ';color:#412402">Find a quick beng</div></div>' +
+  '<div style="flex:1"></div>' + bottomNav('') + '</div>'; });
+
+// === 4/5. ADD A BENG — SHARED ACCORDION (scheduled + quick use the same component) ===
+function cell(name, iconName, label, summary, bodyHtml){ var open = state.addBeng.open===name;
+  return '<div class="cell"><div class="cell-head" onclick="toggleCell(\'' + name + '\')">' +
+    '<div style="display:flex;align-items:center;gap:8px">' + ic(iconName,16,'#5F5E5A') + '<div><div style="font-size:11px;color:#5F5E5A">' + label + '</div><div style="font-size:13px;font-weight:500;color:#0F1330">' + summary + '</div></div></div>' +
+    ic(open?'chevron-up':'chevron-down',16,'#888780') + '</div>' +
+    (open ? ('<div class="cell-body">' + bodyHtml + '</div>') : '') + '</div>'; }
+
+function repeatBody(b){
+  var extra = '';
+  if(b.freq==='weekly'){
+    var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    extra = '<div style="font-size:11px;color:#5F5E5A;margin:10px 0 6px">On these days</div><div style="display:flex;gap:6px">' + days.map(function(d){ return '<div class="daydot ' + (b.days.indexOf(d)>-1?'sel':'') + '" onclick="toggleDay(\'' + d + '\')">' + d[0] + '</div>'; }).join('') + '</div>';
+  } else if(b.freq==='monthly'){
+    extra = '<div style="font-size:11px;color:#5F5E5A;margin:10px 0 6px">Each</div><div style="font-size:12px">Date 20 of every month</div>';
+  } else if(b.freq==='yearly'){
+    extra = '<div style="font-size:11px;color:#5F5E5A;margin:10px 0 6px">Months</div><div style="display:flex;flex-wrap:wrap">' + chipRow(['Jan','Jun','Dec'],-1) + '</div>';
+  } else if(b.freq==='daily'){
+    extra = '<div style="font-size:11px;color:#5F5E5A;margin-top:10px">Repeats every day, no further options.</div>';
+  }
+  var freqs=['never','daily','weekly','monthly','yearly'];
+  var chips = freqs.map(function(f){ return '<div class="chip ' + (b.freq===f?'sel':'') + '" onclick="pickFreq(\'' + f + '\')">' + (f.charAt(0).toUpperCase()+f.slice(1)) + '</div>'; }).join('');
+  return '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' + chips + '</div>' + extra;
+}
+
+// Shared field-order per bengs_User_Flow-3.pdf §2/§3: Title -> Vehicle -> Location
+// (origin+destination, single map ABOVE the accordion, not duplicated inside a cell) ->
+// Max distance (gated on vehicle+locations) -> Price -> Passengers -> Description ->
+// Departure -> Max ETA (gated on departure too) -> Repeat (scheduled only, omitted for quick).
+// mode: 'scheduled' | 'quick'. Quick locks Origin to current location and Departure to "Now",
+// and drops the Repeat cell entirely rather than showing it disabled.
+function bengForm(mode){
+  var b = state.addBeng;
+  var isQuick = mode === 'quick';
+  var vehicles = ['Avanza pagi · B 1234 ABC','Vario malam · B 5678 XYZ'];
+  var vehicleBody = vehicles.map(function(v,i){ return '<div onclick="pickVehicle(' + i + ')" style="padding:8px 0;border-top:0.5px solid #F1EFE8;font-size:13px;display:flex;justify-content:space-between;cursor:pointer"><span>' + v + '</span>' + (b.vehicle===i?ic('check',14,C.blue):'') + '</div>'; }).join('') + '<div style="padding-top:8px;font-size:11px;color:#185FA5;cursor:pointer" onclick="go(\'VEH-S02\')">+ Add new vehicle</div>';
+
+  var locationBody = isQuick ?
+    ('<div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:' + C.lavender + ';border-radius:8px;padding:8px"><span style="color:#534AB7">' + ic('lock',12) + '</span><span style="font-size:12px;color:#26215C">Origin locked to current location</span></div>' +
+     '<input value="' + b.destination + '" oninput="state.addBeng.destination=this.value" placeholder="Destination" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px">') :
+    ('<input value="' + b.origin + '" oninput="state.addBeng.origin=this.value" placeholder="Origin" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px;margin-bottom:6px">' +
+     '<input value="' + b.destination + '" oninput="state.addBeng.destination=this.value" placeholder="Destination" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px">');
+  var locationSummary = (isQuick ? 'Current location' : b.origin) + ' → ' + b.destination;
+
+  var locationsFilled = b.origin && b.destination; // gates max distance
+  var departureFilled = isQuick ? true : true; // demo state: departure always considered set once reached in flow
+  var distanceGated = !locationsFilled;
+  var etaGated = !locationsFilled || !departureFilled;
+
+  var distanceBody = distanceGated ?
+    ('<div style="font-size:11px;color:#888780;margin-top:8px">Fill in vehicle, origin, and destination first — this pre-fills from ORS as a lowerbound. Editable, but never below that floor.</div>') :
+    ('<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span style="font-size:12px">Max distance</span><input value="' + b.distance + '" oninput="state.addBeng.distance=Math.max(Number(this.value)||0, 12.4)" style="width:80px;text-align:right;border:0.5px solid #D3D1C7;border-radius:6px;padding:4px 6px;font-size:13px;font-weight:500;color:#185FA5"> km</div>' +
+     '<div style="font-size:10px;color:#888780;margin-top:4px">ORS lowerbound: 12.4 km — this field can only go up from there</div>');
+
+  var departureBody = isQuick ?
+    ('<div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:' + C.lavender + ';border-radius:8px;padding:8px"><span style="color:#534AB7">' + ic('lock',12) + '</span><span style="font-size:12px;color:#26215C">Fixed to now for quick beng — no picker</span></div>') :
+    ('<div style="margin-top:8px;font-size:12px">Date: Today · Time: 07:00 · Timezone: Jakarta</div>');
+
+  var etaBody = etaGated ?
+    ('<div style="font-size:11px;color:#888780;margin-top:8px">Fill in departure first — this pre-fills from ORS as a lowerbound. Editable, but never earlier than that floor.</div>') :
+    ('<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span style="font-size:12px">Latest arrival</span><input value="' + b.arrivalTime + '" oninput="state.addBeng.arrivalTime=this.value" style="width:80px;text-align:right;border:0.5px solid #D3D1C7;border-radius:6px;padding:4px 6px;font-size:13px;font-weight:500;color:#185FA5"></div>' +
+     '<div style="font-size:10px;color:#888780;margin-top:4px">ORS lowerbound: ' + b.arrivalTimeMin + ' — driver can push this later, never earlier</div>');
+
+  var freqSummary = b.freq==='never' ? 'Never' : (b.freq.charAt(0).toUpperCase()+b.freq.slice(1)) + ((b.freq==='weekly' && b.days.length) ? (' · '+b.days.join(', ')) : '');
+
+  var cells =
+    cell('title','abc','Title', b.title, '<input value="' + b.title + '" oninput="state.addBeng.title=this.value" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px">') +
+    cell('vehicle','car','Vehicle', vehicles[b.vehicle], vehicleBody) +
+    cell('location','map-pin','Location', locationSummary, locationBody) +
+    cell('distance','ruler-2','Max distance', distanceGated ? 'Locked' : (b.distance + ' km'), distanceBody) +
+    cell('price','cash','Price per passenger', 'Rp ' + b.price.toLocaleString(), '<input value="' + b.price + '" oninput="state.addBeng.price=Number(this.value)||0" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px">') +
+    cell('seats','users','Passengers', b.seats + ' seats', '<input value="' + b.seats + '" oninput="state.addBeng.seats=Number(this.value)||0" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px">') +
+    cell('desc','notes','Description (optional)', b.desc || 'Add a note', '<textarea oninput="state.addBeng.desc=this.value" style="width:100%;border:0.5px solid #D3D1C7;border-radius:8px;padding:8px;font-size:13px;margin-top:8px;min-height:60px">' + b.desc + '</textarea>') +
+    cell('departure','clock','Departure', isQuick ? 'Now' : 'Today, 07:00', departureBody) +
+    cell('eta','clock-hour-4','Latest arrival', etaGated ? 'Locked' : ('by ' + b.arrivalTime), etaBody) +
+    (isQuick ? '' : cell('repeat','repeat','Repeat', freqSummary, repeatBody(b)));
+
+  return '<div style="background:' + C.blue + ';min-height:600px;padding:16px">' +
+    headerBar(isQuick ? 'Add a quick beng' : 'Add a Beng', {dark:true, back: isQuick ? 'NAV-S03' : 'NAV-S02', right:ic('check',16)}) +
+    '<div style="margin-bottom:12px;border-radius:14px;overflow:hidden">' + mapSVG(90) + '</div>' +
+    '<div style="text-align:center;color:rgba(255,255,255,0.7);font-size:10px;margin-bottom:10px">Single map, updates as Location changes below — no second map inside any cell</div>' +
+    '<div style="background:rgba(255,255,255,0.92);border-radius:16px;padding:10px">' + cells + '</div>' +
+    '<div class="btn" onclick="go(\'NAV-S02\')" style="background:' + C.amber + ';color:#412402;margin-top:14px">Beng!</div>' +
+    '<div style="text-align:center;color:rgba(255,255,255,0.6);font-size:10px;margin-top:8px">' + (isQuick ? 'Same accordion as Add a Scheduled Beng — Origin/Departure locked, Repeat omitted' : 'Only one cell expands at a time — opening another closes this one') + '</div></div>';
+}
+
+reg('SCHED-ACC','Add a Scheduled Beng','Add a Beng — accordion, shared with Quick Beng', function(){ return bengForm('scheduled'); });
+
+reg('SCHED-S11','Add a Scheduled Beng','Beng Detail (Driver view)', function(){ return '<div style="background:#F1EFE8;min-height:600px;padding:20px">' + headerBar('Dimas\' #1 Beng',{back:'NAV-S02',right:ic('pencil',16)}) +
+  '<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between"><div style="font-size:13px;font-weight:500">You</div><div style="font-size:12px;color:#5F5E5A">Avanza · B 1234 ABC</div></div>' +
+  mapSVG(90) +
+  '<div onclick="go(\'DEC-S01\')" style="background:#fff;border-radius:12px;padding:12px;margin:10px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px">2 pending requests</span>' + ic('chevron-right',16,'#888780') + '</div>' +
+  '<div onclick="go(\'DEC-S04\')" style="background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px">Edit route</span>' + ic('chevron-right',16,'#888780') + '</div>' +
+  '<div class="btn" onclick="go(\'SCHED-S12\')" style="border:0.5px solid #E24B4A;color:#A32D2D">Delete the day</div></div>'; });
+
+reg('SCHED-S12','Add a Scheduled Beng','Delete Confirmation', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center">' +
+  '<div style="text-align:center;margin-bottom:14px">' + ic('alert-triangle',28,'#A32D2D') + '<div style="font-size:14px;font-weight:500;margin-top:8px">Delete this beng?</div></div>' +
+  '<div style="display:flex;gap:8px;margin-bottom:12px"><div class="chip sel">This day</div><div class="chip">Whole schedule</div></div>' +
+  '<div style="font-size:10px;color:#5F5E5A;margin-bottom:6px">Reason (required, shown to passengers)</div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:10px;padding:10px;font-size:12px;color:#888780;margin-bottom:16px;min-height:50px">Car in the shop, sorry!</div>' +
+  '<div class="btn" onclick="go(\'NAV-S02\')" style="background:#E24B4A;color:#fff">Confirm delete</div></div>'; });
+
+// === 5. ADD A QUICK BENG (reuses bengForm — see §4 above) ===
+reg('QUICK-S01','Add a Quick Beng','Add a Quick Beng — same accordion as Scheduled', function(){ return bengForm('quick'); });
+
+reg('QUICK-S02','Add a Quick Beng','Matching / Loading', function(){ return '<div style="background:' + C.navy + ';min-height:600px;padding:32px 20px;text-align:center">' +
+  '<div style="width:48px;height:48px;margin:60px auto 20px;border-radius:50%;border:3px solid rgba(255,255,255,0.15);border-top-color:' + C.amber + '"></div>' +
+  '<div style="color:#fff;font-size:15px;font-weight:500;margin-bottom:8px">Finding cool people…</div>' +
+  '<div onclick="go(\'RIDE-S01\')" style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:40px;cursor:pointer">tap to simulate match found →</div></div>'; });
+
+// === 6. FIND & REQUEST — SCHEDULED ===
+reg('FINDS-S01','Find & Request — Scheduled','Search Form — FIXED (full fields)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Find a beng',{back:'NAV-S02'}) +
+  field('Title name','Optional') + field('Vehicle type / brand / model','Optional') +
+  '<div style="border-radius:12px;overflow:hidden;margin-bottom:10px">' + mapSVG(80) + '</div>' +
+  field('Origin','Senayan Residence') + field('Destination','SCBD Lot 17') +
+  '<div style="display:flex;gap:8px;margin-bottom:10px"><div style="flex:1">' + field('Max distance','12.4 km') + '</div><div style="flex:1">' + field('Departure','Today 07:00') + '</div></div>' +
+  field('Latest arrival','08:15') +
+  '<div class="btn" onclick="go(\'FINDS-S02\')" style="background:' + C.blue + ';color:#fff;margin-top:8px">Search!</div>' +
+  '<div style="text-align:center;font-size:10px;color:#888780;margin-top:8px">Previously missing: title, vehicle type/brand/model, max distance</div></div>'; });
+
+reg('FINDS-S02','Find & Request — Scheduled','Results List', function(){ return '<div style="background:#F1EFE8;min-height:600px;padding:20px">' + headerBar('Results',{back:'FINDS-S01',right:ic('adjustments',16)}) +
+  '<div onclick="go(\'FINDS-S04\')" style="background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer">' +
+    '<div style="display:flex;justify-content:space-between"><div style="font-size:13px;font-weight:500">Dimas A.</div><div style="font-size:12px">' + ic('star',11,'#EF9F27') + ' 5.0</div></div>' +
+    '<div style="display:flex;gap:4px;margin:6px 0">' + pill('Cool friend','#EAF3DE','#27500A') + pill('Same neighbourhood','#EEEDFE','#26215C') + '</div>' +
+    '<div style="font-size:12px;color:#5F5E5A">Avanza · Rp 15.000 · ETA 15 min</div></div>' +
+  '<div onclick="go(\'FINDS-S03\')" style="text-align:center;font-size:11px;color:#185FA5;cursor:pointer">Open filter & sort ↓</div></div>'; });
+
+reg('FINDS-S03','Find & Request — Scheduled','Filter & Sort Sheet', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Filter & sort',{back:'FINDS-S02'}) +
+  sliderRow('Vehicle details','Mobil only',0,2,1) + sliderRow('Rating window','4.0 - 5.0',0,5,4) + sliderRow('Price window','Rp 0 - 15.000',0,30000,15000) + sliderRow('Distance window','0 - 12.4 km',0,25,12) + sliderRow('ETA window','0 - 50 min',0,90,50) +
+  '<div style="background:#E6F1FB;border-radius:10px;padding:10px 12px;font-size:11px;color:#0C447C;margin-bottom:14px">Moving any slider updates the matching field in Search as its new maximum.</div>' +
+  '<div class="btn" onclick="go(\'FINDS-S02\')" style="background:' + C.amber + ';color:#412402">Done</div></div>'; });
+
+reg('FINDS-S04','Find & Request — Scheduled','Beng Detail (Passenger view)', function(){ return '<div style="background:#FAEEDA;min-height:600px;padding:20px">' + headerBar('Dimas\' #1 Beng',{back:'FINDS-S02'}) +
+  '<div style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between"><div style="font-size:13px;font-weight:500">Dimas A.</div><div style="font-size:12px">' + ic('star',11,'#EF9F27') + ' 5.0</div></div>' +
+  mapSVG(90) +
+  '<div class="btn" onclick="go(\'FINDS-S05\')" style="background:' + C.amber + ';color:#412402;margin-top:14px">Request</div></div>'; });
+
+reg('FINDS-S05','Find & Request — Scheduled','Request Confirmation — FIXED (banners)', function(){ var banner = state.reqConfirm.overlap ?
+    '<div style="background:#FCEBEB;border-radius:12px;padding:14px;text-align:center;margin-bottom:16px"><div style="color:#791F1F;font-size:13px;font-weight:500">The date overlaps</div><div style="color:#A32D2D;font-size:11px;margin-top:4px">You already have a request in this window</div></div>' :
+    '<div style="background:#EAF3DE;border-radius:12px;padding:14px;text-align:center;margin-bottom:16px"><div style="color:#27500A;font-size:15px;font-weight:600">Beng!</div><div style="color:#3B6D11;font-size:11px;margin-top:4px">Request sent to Dimas A.</div></div>';
+  return '<div style="background:#FAEEDA;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center">' + banner +
+  '<div class="btn" onclick="toggleOverlapDemo()" style="border:0.5px solid #D3D1C7;color:#5F5E5A;margin-bottom:10px">Toggle demo state</div>' +
+  '<div class="btn" onclick="go(\'FINDS-S06\')" style="background:' + C.amber + ';color:#412402">View my requests</div></div>'; });
+
+reg('FINDS-S06','Find & Request — Scheduled','My Requests', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('My requests',{back:'NAV-S02'}) +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:500">Sunrise Ride</span>' + pill('Pending','#FAEEDA','#633806') + '</div><div style="font-size:11px;color:#5F5E5A;margin-top:4px">Fri 26 Jun · Dimas A.</div></div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px"><div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:500">Evening Loop</span>' + pill('Pending','#FAEEDA','#633806') + '</div><div style="font-size:11px;color:#5F5E5A;margin-top:4px">Sat 27 Jun · Chris — non-overlapping, both allowed</div></div></div>'; });
+
+// === 7. FIND & REQUEST — QUICK ===
+reg('FINDQ-S01','Find & Request — Quick','Search Form (Quick)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Find a quick beng',{back:'NAV-S03'}) +
+  field('Title name','Optional') + field('Vehicle type / brand / model','Optional') +
+  lockedField('Origin','Current location','lock') +
+  '<div style="height:10px"></div>' + field('Destination','Optional') +
+  '<div class="btn" onclick="go(\'QUICK-S02\')" style="background:' + C.blue + ';color:#fff;margin-top:8px">Search!</div></div>'; });
+
+reg('FINDQ-S02','Find & Request — Quick','Card Stack (one-by-one)', function(){
+  var cards = [ {name:'Dimas A.', tag:'Cool friend'}, {name:'Abel', tag:'5 cool mutuals'}, {name:'Chris', tag:'Same office'} ];
+  var c = cards[state.cardStack.idx];
+  return '<div style="background:' + C.navy + ';min-height:600px;padding:16px">' +
+  '<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span onclick="skipCard()" style="color:rgba(255,255,255,0.6);font-size:11px;cursor:pointer">' + ic('arrow-left',12) + ' skip</span><span onclick="skipCard()" style="color:rgba(255,255,255,0.6);font-size:11px;cursor:pointer">skip ' + ic('arrow-right',12) + '</span></div>' +
+  '<div style="background:#fff;border-radius:20px;overflow:hidden">' + mapSVG(110) +
+    '<div style="padding:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="width:38px;height:38px;border-radius:50%;background:#D3D1C7"></div><div><div style="font-size:14px;font-weight:500">' + c.name + '</div><div style="font-size:11px;color:#5F5E5A">' + ic('star',11,'#EF9F27') + ' 5.0</div></div></div>' +
+    '<div style="margin-bottom:10px">' + pill(c.tag,'#EAF3DE','#27500A') + '</div>' +
+    '<div style="font-size:12px;color:#5F5E5A">Senayan Residence → SCBD Lot 17</div></div></div>' +
+  '<div class="btn" onclick="toggleRequest()" style="background:' + (state.cardStack.requested?'#fff':C.amber) + ';color:' + (state.cardStack.requested?'#0F1330':'#412402') + ';margin-top:14px;border:' + (state.cardStack.requested?'1px solid #D3D1C7':'none') + '">' + (state.cardStack.requested?'Cancel':'Request') + '</div>' +
+  (state.cardStack.requested ? ('<div onclick="go(\'QUICK-S02\')" style="text-align:center;color:rgba(255,255,255,0.5);font-size:10px;margin-top:8px;cursor:pointer">tap to simulate accepted →</div>') : '') + '</div>'; });
+
+// === 8. DRIVER DECISION ===
+reg('DEC-S01','Driver Decision & Route Editing','Pending Requests List — FIXED (disabled badge)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Requests',{back:'SCHED-S11'}) +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">Abel</div><div style="font-size:11px;color:#5F5E5A">Fits current route</div></div><div style="display:flex;gap:6px"><div onclick="go(\'DEC-S03\')" class="btn" style="width:60px;height:30px;border:0.5px solid #E24B4A;color:#A32D2D;font-size:11px">Reject</div><div onclick="go(\'DEC-S02\')" class="btn" style="width:60px;height:30px;background:#639922;color:#fff;font-size:11px">Accept</div></div></div>' +
+  '<div style="border:0.5px dashed #D3D1C7;border-radius:12px;padding:12px;opacity:0.5;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:500">Chris</div><div style="font-size:10px;color:#A32D2D">Doesn\'t fit current route</div></div><div style="font-size:10px;color:#888780">disabled</div></div>' +
+  '<div style="text-align:center;font-size:10px;color:#888780;margin-top:10px">Fixed: infeasible requests now stay visible (disabled), not hidden</div></div>'; });
+reg('DEC-S02','Driver Decision & Route Editing','Accept Confirmation', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center;text-align:center">' + ic('circle-check',32,'#3B6D11') + '<div style="font-size:14px;font-weight:500;margin:10px 0">Route updated</div><div class="btn" onclick="go(\'SCHED-S11\')" style="background:' + C.blue + ';color:#fff">Done</div></div>'; });
+reg('DEC-S03','Driver Decision & Route Editing','Reject (no reason, scheduled only)', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center;text-align:center">' + ic('circle-x',32,'#A32D2D') + '<div style="font-size:14px;font-weight:500;margin:10px 0">Request rejected</div><div class="btn" onclick="go(\'DEC-S01\')" style="background:' + C.blue + ';color:#fff">Done</div></div>'; });
+reg('DEC-S04','Driver Decision & Route Editing','Edit Route (drag-drop)', function(){ var stops=['Departure','Pick-up Abel','Pick-up you','Drop-off Abel','Drop-off you'];
+  var rows = stops.map(function(s){ return '<div style="border:0.5px solid #D3D1C7;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">' + ic('grip-vertical',14,'#888780') + ' ' + s + '</span>' + ic('x',14,'#A32D2D') + '</div>'; }).join('');
+  return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Edit route',{back:'SCHED-S11'}) +
+  field('Beng name (editable)',"Dimas' #1 Beng") + field('Vehicle (locked)','Avanza · B 1234 ABC — 🔒') +
+  '<div style="font-size:11px;color:#5F5E5A;margin:12px 0 6px">Drag to reorder stops</div>' +
+  '<div style="display:flex;flex-direction:column;gap:6px">' + rows + '</div>' +
+  '<div class="btn" onclick="go(\'SCHED-S11\')" style="background:' + C.blue + ';color:#fff;margin-top:14px">Save</div></div>'; });
+
+// === 9. ON-GOING BENG ===
+reg('RIDE-S01','On-going Beng','On a Ride — Driver view', function(){ return '<div style="background:' + C.blue + ';min-height:600px;padding:18px">' +
+  '<div style="color:#fff;font-size:14px;font-weight:500">Sunrise ride</div><div style="color:rgba(255,255,255,0.7);font-size:11px;margin-bottom:12px">You\'re driving</div>' +
+  '<div style="height:80px;background:rgba(255,255,255,0.15);border-radius:12px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,0.7);font-size:11px">' + ic('map-2',16) + ' live map · tracking you</div>' +
+  '<div style="background:#fff;border-radius:14px;padding:10px 12px">' +
+    '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="font-size:12px">Departure</span>' + pill('Done','#EAF3DE','#27500A') + '</div>' +
+    '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:0.5px solid #F1EFE8"><span style="font-size:12px">Pick-up you</span>' + pill('Not yet','#FAEEDA','#633806') + '</div></div>' +
+  '<div class="btn" onclick="go(\'RATE-S01\')" style="background:#FCEBEB;color:#791F1F;margin-top:12px">Finish ride (demo)</div></div>'; });
+
+// === 10. RATING ===
+reg('RATE-S01','Rating','Rating Pop-up', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center;text-align:center">' +
+  '<div style="font-size:14px;font-weight:500;margin-bottom:10px">Rate Dimas A.</div>' +
+  '<div style="font-size:24px;color:#EF9F27;margin-bottom:14px">★★★★★</div>' +
+  '<div style="border:0.5px solid #D3D1C7;border-radius:10px;padding:10px;font-size:12px;color:#888780;min-height:50px;margin-bottom:16px">Great driver, on time!</div>' +
+  '<div class="btn" onclick="go(\'PROF-S01\')" style="background:' + C.blue + ';color:#fff">Submit</div></div>'; });
+
+// === 11. PROFILE / SOCIAL / SETTINGS ===
+reg('PROF-S01','Profile, Social & Settings','Own Profile', function(){ return '<div style="background:#F1EFE8;min-height:600px;display:flex;flex-direction:column">' +
+  '<div style="padding:20px;flex:1">' +
+  '<div style="text-align:center;margin-bottom:16px"><div style="width:56px;height:56px;border-radius:50%;background:#D3D1C7;margin:0 auto 8px"></div><div style="font-size:15px;font-weight:500">Emmie Watson</div>' +
+    '<div style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:11px;color:#5F5E5A"><div>10 followers</div><div>9 following</div><div>5 mutuals</div></div></div>' +
+  '<div onclick="go(\'PROF-S02\')" style="background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;cursor:pointer"><span style="font-size:13px">Edit profile</span>' + ic('chevron-right',14,'#888780') + '</div>' +
+  '<div onclick="go(\'PROF-S03\')" style="background:#fff;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;cursor:pointer"><span style="font-size:13px">Profile enrichment</span>' + ic('chevron-right',14,'#888780') + '</div>' +
+  '<div onclick="go(\'PROF-S09\')" style="background:#fff;border-radius:12px;padding:12px;display:flex;justify-content:space-between;cursor:pointer"><span style="font-size:13px">Settings</span>' + ic('chevron-right',14,'#888780') + '</div>' +
+  '</div>' + bottomNav('profile') + '</div>'; });
+
+reg('PROF-S02','Profile, Social & Settings','Edit Profile', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Edit profile',{back:'PROF-S01'}) + field('Name','Emmie Watson') + field('Gender','Female') + field('Phone','+62 811 9767 088') + '<div class="btn" onclick="go(\'PROF-S01\')" style="background:' + C.blue + ';color:#fff;margin-top:8px">Save</div></div>'; });
+
+reg('PROF-S03','Profile, Social & Settings','Profile Enrichment + privacy toggle', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Enrichment',{back:'PROF-S01'}) +
+  enrichRow('Bio','Coffee-first commuter','public') + enrichRow('Interests','#coffee #jazz','public') + enrichRow('Job title','Product Designer','cool_friends') + enrichRow('Workplace','SCBD Tower','cool_friends') +
+  '<div style="text-align:center;font-size:10px;color:#888780;margin-top:8px">Tapping a privacy pill opens a confirm dialog (PROF-S04)</div></div>'; });
+
+reg('PROF-S04','Profile, Social & Settings','Privacy Toggle Confirmation', function(){ return '<div style="background:#fff;min-height:600px;padding:20px;display:flex;flex-direction:column;justify-content:center;text-align:center">' + ic('alert-triangle',26,'#BA7517') + '<div style="font-size:14px;font-weight:500;margin:10px 0">Change visibility to Public?</div><div style="display:flex;gap:8px"><div class="btn" onclick="go(\'PROF-S03\')" style="border:0.5px solid #D3D1C7;flex:1">Cancel</div><div class="btn" onclick="go(\'PROF-S03\')" style="background:' + C.blue + ';color:#fff;flex:1">Confirm</div></div></div>'; });
+
+reg('PROF-S05','Profile, Social & Settings','Other\'s Profile — FIXED (tags + WA gate)', function(){ return '<div style="background:#F1EFE8;min-height:600px;padding:20px">' + headerBar('Abel',{back:'SOC-S06'}) +
+  '<div style="text-align:center;margin-bottom:12px"><div style="width:56px;height:56px;border-radius:50%;background:#D3D1C7;margin:0 auto 8px"></div><div style="font-size:15px;font-weight:500">Abel</div>' +
+    '<div style="display:flex;justify-content:center;gap:4px;margin:8px 0">' + pill('5 cool mutuals','#EEEDFE','#26215C') + pill('Same neighbourhood','#EAF3DE','#27500A') + '</div></div>' +
+  '<div style="display:flex;gap:8px;margin-bottom:14px"><div class="btn" style="flex:1;border:0.5px solid #D3D1C7">Unfollow</div><div class="btn" style="flex:1;background:#E1F5EE;color:#085041">Text in WhatsApp</div></div>' +
+  '<div style="font-size:10px;color:#888780;text-align:center">Fixed: this button now only shows when mutual-follow + both toggles are true, matching Friends list</div></div>'; });
+
+reg('SOC-S06','Profile, Social & Settings','Friends / Search', function(){ return '<div style="background:#fff;min-height:600px;display:flex;flex-direction:column">' +
+  '<div style="padding:20px;flex:1">' +
+  '<div style="font-size:15px;font-weight:500;margin-bottom:14px">Friends</div>' +
+  field('Search','Search for people on Bengs') +
+  '<div onclick="go(\'PROF-S05\')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid #F1EFE8;cursor:pointer"><div style="width:34px;height:34px;border-radius:50%;background:#D3D1C7"></div><div style="flex:1"><div style="font-size:13px;font-weight:500">Abel</div>' + pill('5 cool mutuals','#EEEDFE','#26215C') + '</div>' + ic('chevron-right',14,'#888780') + '</div>' +
+  '</div>' + bottomNav('friends') + '</div>'; });
+
+reg('PROF-S07','Profile, Social & Settings','Saved Address List', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Saved addresses',{back:'PROF-S09'}) + '<div style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">Home</div><div style="font-size:11px;color:#5F5E5A">Senayan Residence</div></div>' + ic('pencil',14,'#888780') + '</div></div>'; });
+
+reg('PROF-S09','Profile, Social & Settings','Settings', function(){ return '<div style="background:#F1EFE8;min-height:600px;padding:20px">' + headerBar('Settings',{back:'PROF-S01'}) +
+  '<div style="background:#fff;border-radius:12px;padding:4px 14px;margin-bottom:12px">' +
+    '<div style="font-size:11px;color:#5F5E5A;padding:10px 0 6px">DRIVER</div>' +
+    '<div onclick="go(\'KYC-S01\')" style="display:flex;justify-content:space-between;padding:10px 0;border-top:0.5px solid #F1EFE8;cursor:pointer"><span style="font-size:13px">Become a driver</span>' + pill('Not started','#FAEEDA','#633806') + '</div>' +
+    '<div onclick="go(\'VEH-S05\')" style="display:flex;justify-content:space-between;padding:10px 0;border-top:0.5px solid #F1EFE8;cursor:pointer"><span style="font-size:13px">My vehicles</span>' + ic('chevron-right',14,'#888780') + '</div></div>' +
+  '<div style="background:#fff;border-radius:12px;padding:4px 14px;margin-bottom:12px">' +
+    '<div style="font-size:11px;color:#5F5E5A;padding:10px 0 6px">ADMIN</div>' +
+    '<div onclick="go(\'ADM-S01\')" style="display:flex;justify-content:space-between;padding:10px 0;border-top:0.5px solid #F1EFE8;cursor:pointer"><span style="font-size:13px">Review queue</span>' + pill('3 pending','#FCEBEB','#791F1F') + '</div></div></div>'; });
+
+// === 12. NOTIFICATION ===
+reg('NOTIF-S01','Notification','Notification List — FIXED (new row types)', function(){ return '<div style="background:#fff;min-height:600px;display:flex;flex-direction:column">' +
+  '<div style="padding:20px;flex:1">' +
+  '<div style="font-size:15px;font-weight:500;margin-bottom:14px">Notification</div>' +
+  notifRow('Your request was accepted','Sunrise Ride · 2h ago') +
+  notifRow('Auto-rejected after 1 week','Evening Loop · new') +
+  notifRow('Route was edited by Dimas','Sunrise Ride · new') +
+  notifRow('You were removed from a route','Weekend Trip · new') +
+  notifRow('Your KYC was approved','Identity verification · new') +
+  notifRow('New KYC submission (Admin)','Emmie Watson · new') +
+  '<div style="text-align:center;font-size:10px;color:#888780;margin-top:10px">5 new row types added per the gap review</div>' +
+  '</div>' + bottomNav('inbox') + '</div>'; });
+
+// === 13. ADMIN ===
+reg('ADM-S01','Admin','Queue Picker', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Review queue',{back:'PROF-S09'}) +
+  '<div onclick="go(\'ADM-S02\')" style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;cursor:pointer"><span style="font-size:13px">KYC review</span>' + pill('3 pending','#FCEBEB','#791F1F') + '</div>' +
+  '<div onclick="go(\'ADM-S03\')" style="border:0.5px solid #D3D1C7;border-radius:12px;padding:12px;display:flex;justify-content:space-between;cursor:pointer"><span style="font-size:13px">Vehicle review</span>' + pill('1 pending','#FCEBEB','#791F1F') + '</div></div>'; });
+reg('ADM-S02','Admin','KYC Review Detail', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Emmie Watson',{back:'ADM-S01'}) + '<div style="display:flex;gap:8px;margin-bottom:16px"><div style="flex:1;height:60px;background:#F1EFE8;border-radius:10px;display:flex;align-items:center;justify-content:center">' + ic('id',20,'#888780') + '</div><div style="flex:1;height:60px;background:#F1EFE8;border-radius:10px;display:flex;align-items:center;justify-content:center">' + ic('user',20,'#888780') + '</div></div><div style="display:flex;gap:8px"><div class="btn" onclick="go(\'ADM-S01\')" style="flex:1;border:0.5px solid #E24B4A;color:#A32D2D">Reject</div><div class="btn" onclick="go(\'ADM-S01\')" style="flex:1;background:#639922;color:#fff">Approve</div></div></div>'; });
+reg('ADM-S03','Admin','Vehicle Review Detail', function(){ return '<div style="background:#fff;min-height:600px;padding:20px">' + headerBar('Vario malam',{back:'ADM-S01'}) + '<div style="height:80px;background:#F1EFE8;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">' + ic('file-text',22,'#888780') + '</div><div style="display:flex;gap:8px"><div class="btn" onclick="go(\'ADM-S01\')" style="flex:1;border:0.5px solid #E24B4A;color:#A32D2D">Reject</div><div class="btn" onclick="go(\'ADM-S01\')" style="flex:1;background:#639922;color:#fff">Approve</div></div></div>'; });
+
+// ---------------- SIDEBAR + INIT ----------------
+function buildSidebar(){
+  var groups = {};
+  var order = [];
+  Object.keys(SCREENS).forEach(function(k){ var s=SCREENS[k]; if(!groups[s.group]){ groups[s.group]=[]; order.push(s.group); } groups[s.group].push(s); });
+  var html='';
+  order.forEach(function(g){ html += '<div class="group-label">' + g + '</div>';
+    groups[g].forEach(function(s){ html += '<div class="nav-item" data-id="' + s.id + '" onclick="go(\'' + s.id + '\')">' + s.id + ' — ' + s.title + '</div>'; }); });
+  document.getElementById('nav-list').innerHTML = html;
+}
+buildSidebar();
+go('AUTH-S01');
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>BENGS — Repeat picker (revised)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  body { background:#F2F3F7; margin:0; padding:40px 20px; display:flex; gap:28px; flex-wrap:wrap; justify-content:center; font-family:system-ui,-apple-system,sans-serif; }
+  .phone { width:250px; background:#0d0d0d; border-radius:36px; padding:8px; box-sizing:border-box; }
+  .screen { background:#fff; border-radius:29px; overflow:hidden; height:520px; display:flex; flex-direction:column; }
+  .status { display:flex; justify-content:space-between; align-items:center; padding:8px 16px 4px; font-size:11px; font-weight:600; color:#111; }
+  .navbar { display:flex; align-items:center; padding:10px 14px 8px; position:relative; border-bottom:0.5px solid #F0F0F0; }
+  .navbar .title { position:absolute; left:0; right:0; text-align:center; font-size:13px; font-weight:700; color:#0F1330; }
+  .row { padding:12px 16px; font-size:12.5px; color:#0F1330; border-bottom:0.5px solid #F3F3F3; display:flex; align-items:center; justify-content:space-between; }
+  .row.selected { font-weight:600; color:#1D5BFE; background:#F5F8FF; }
+  .arrow-between { display:flex; align-items:center; color:#999; }
+  .card { background:#F7F8FC; border-radius:12px; padding:2px 12px; margin-bottom:14px; }
+  .card .r { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:0.5px solid #E8E8ED; font-size:12px; color:#0F1330; }
+  .card .r:last-child { border-bottom:none; }
+  .stepper span { width:20px; height:20px; border-radius:50%; background:#fff; border:0.5px solid #DDD; display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:#1D5BFE; }
+  .section-label { font-size:10px; color:#999; margin:0 0 6px; text-transform:uppercase; letter-spacing:0.3px; }
+  .content { padding:14px; overflow-y:auto; flex:1; }
+  .summary { font-size:10.5px; color:#999; text-align:center; margin:4px 0 0; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+    <div class="status"><span>9:27</span><span>●●● 5G 100%</span></div>
+    <div class="navbar"><i class="ti ti-chevron-left" style="font-size:17px;color:#1D5BFE;"></i><span class="title">Repeat</span></div>
+    <div style="flex:1;overflow-y:auto;">
+      <div class="row">Never</div>
+      <div class="row">Hourly</div>
+      <div class="row">Daily</div>
+      <div class="row">Weekdays</div>
+      <div class="row">Weekends</div>
+      <div class="row selected">Weekly <i class="ti ti-check" style="font-size:15px;"></i></div>
+      <div class="row">Biweekly</div>
+      <div class="row">Monthly</div>
+      <div class="row">Every 3 months</div>
+      <div class="row">Every 6 months</div>
+      <div class="row">Yearly</div>
+      <div class="row selected">Custom <i class="ti ti-chevron-right" style="font-size:14px;"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="arrow-between"><i class="ti ti-arrow-right" style="font-size:24px;"></i></div>
+
+<div class="phone">
+  <div class="screen">
+    <div class="status"><span>9:27</span><span>●●● 5G 100%</span></div>
+    <div class="navbar"><i class="ti ti-chevron-left" style="font-size:17px;color:#1D5BFE;"></i><span class="title">Custom</span></div>
+    <div class="content">
+      <div class="card">
+        <div class="r"><span>Frequency</span><span style="color:#999;display:flex;align-items:center;gap:3px;">Weekly <i class="ti ti-chevron-right" style="font-size:12px;"></i></span></div>
+        <div class="r"><span>Every</span><span class="stepper" style="display:flex;align-items:center;gap:8px;"><span>-</span><b style="font-size:12px;">1</b><span>+</span></span></div>
+      </div>
+      <p class="section-label">On these days</p>
+      <div class="card">
+        <div class="r"><span style="font-weight:600;">Sunday</span><i class="ti ti-check" style="font-size:15px;color:#1D5BFE;"></i></div>
+        <div class="r"><span>Monday</span></div>
+        <div class="r"><span>Tuesday</span></div>
+        <div class="r"><span>Wednesday</span></div>
+        <div class="r"><span style="font-weight:600;">Thursday</span><i class="ti ti-check" style="font-size:15px;color:#1D5BFE;"></i></div>
+        <div class="r"><span>Friday</span></div>
+        <div class="r"><span>Saturday</span></div>
+      </div>
+      <p class="summary">Repeats every week on Sunday and Thursday</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
